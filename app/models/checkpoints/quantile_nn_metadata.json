@@ -1,0 +1,36 @@
+{
+    "model_name": "Quantile_FCNN_90",
+    "timestamp": "2026-11-11T20:38:32.071661",
+    "target": "vhi",
+    "feature_cols": [
+        "vci",
+        "tci",
+        "lst",
+        "sm",
+        "spi_1",
+        "spi_3",
+        "dem",
+        "lon",
+        "lat"
+    ],
+    "metrics": {
+        "RMSE": 2.859830572501023,
+        "MAE": 2.269714262750414,
+        "R2": 0.9769961779365421,
+        "NSE": 0.9769961779365421,
+        "Bias": -1.0620492527219985,
+        "Correlation": 0.9923318611464312,
+        "PICP_Percent": 100.0,
+        "Target_Coverage": 90.0,
+        "Mean_Interval_Width": 33.30564880371094,
+        "PINAW_Percent": 42.568569534395365,
+        "ACE": 10.0
+    },
+    "dataset_size": {
+        "train": 296,
+        "val": 36,
+        "test": 72
+    },
+    "model_path": "app/models/checkpoints/quantile_nn_model.keras",
+    "scaler_path": "app/models/checkpoints/quantile_scaler.pkl"
+}

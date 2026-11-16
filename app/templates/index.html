@@ -1,0 +1,1978 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Deep Kriging - Predicción de Sequía Puno</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/static/css/leaflet.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    * { 
+      margin: 0; 
+      padding: 0; 
+      box-sizing: border-box; 
+    }
+    
+    body { 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      overflow: hidden;
+    }
+    
+    /* ========================================
+       HEADER
+    ======================================== */
+    .header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      padding: 15px 30px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      z-index: 1000;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .header-left h1 {
+      font-size: 22px;
+      color: #333;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .header-subtitle {
+      font-size: 12px;
+      color: #666;
+      margin-top: 2px;
+    }
+    
+    .header-right {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    
+    .model-status {
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .model-status.loaded {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    .model-status.not-loaded {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    
+    /* ========================================
+       MAP
+    ======================================== */
+    #map { 
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100vh; 
+      z-index: 1;
+      background: #e2e8f0;
+    }
+    
+    /* ========================================
+       CONTROLS PANEL
+    ======================================== */
+    #controls {
+      position: absolute;
+      top: 100px;
+      left: 20px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+      z-index: 1000;
+      max-width: 350px;
+      max-height: calc(100vh - 120px);
+      overflow-y: auto;
+    }
+    
+    #controls::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    #controls::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 3px;
+    }
+    
+    #controls::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 3px;
+    }
+    
+    .control-section {
+      margin-bottom: 20px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .control-section:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+    
+    .control-section h3 {
+      font-size: 14px;
+      color: #333;
+      margin-bottom: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    /* ========================================
+       BUTTONS
+    ======================================== */
+    button {
+      background: linear-gradient(135deg, #ea6680 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      font-size: 14px;
+      width: 100%;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(184, 16, 119, 0.4);
+    }
+    
+    button:active {
+      transform: translateY(0);
+    }
+    
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    button.secondary {
+        background: linear-gradient(135deg, #63f8cb 0%, #4dd0e1 100%);
+    }
+
+    button.success {
+        background: linear-gradient(135deg, #1565c0 0%, #26c6da 100%);
+    }
+
+    button.warning {
+        background: linear-gradient(135deg, #0d47a1 0%, #80deea 100%);
+    }
+    
+    /* ========================================
+       INPUTS
+    ======================================== */
+    select, input[type="number"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid #e1e5e9;
+      border-radius: 8px;
+      background: white;
+      font-size: 14px;
+      cursor: pointer;
+      transition: border-color 0.3s ease;
+      margin-bottom: 8px;
+    }
+    
+    select:focus, input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    label {
+      display: block;
+      font-weight: 500;
+      color: #555;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+    
+    /* ========================================
+       DASHBOARD PANEL
+    ======================================== */
+    .dashboard {
+      position: absolute;
+      top: 100px;
+      right: 20px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+      z-index: 1000;
+      width: 320px;
+      display: none;
+    }
+    
+    .dashboard h3 {
+      font-size: 16px;
+      margin-bottom: 15px;
+      color: #333;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .stat-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      color: white;
+    }
+    
+    .stat-label {
+      font-size: 12px;
+      opacity: 0.9;
+      margin-bottom: 5px;
+    }
+    
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+    }
+    
+    .severity-bar {
+      margin-top: 10px;
+    }
+    
+    .severity-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+    
+    .severity-progress {
+      width: 100%;
+      height: 8px;
+      background: rgba(0,0,0,0.1);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    
+    .severity-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.5s ease;
+    }
+    
+    .severity-fill.baja { background: #4caf50; }
+    .severity-fill.moderada { background: #ffeb3b; }
+    .severity-fill.alta { background: #ff9800; }
+    .severity-fill.critica { background: #f44336; }
+    
+    /* ========================================
+       LEGEND
+    ======================================== */
+    .legend {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+      z-index: 1000;
+      display: none;
+      max-width: 250px;
+    }
+    
+    .legend h4 {
+      font-size: 14px;
+      margin-bottom: 10px;
+      color: #333;
+    }
+    
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+    
+    .legend-color {
+      width: 20px;
+      height: 15px;
+      margin-right: 8px;
+      border-radius: 3px;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    
+    /* ========================================
+       LOADING
+    ======================================== */
+    .loading {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(255, 255, 255, 0.95);
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+      z-index: 1001;
+      text-align: center;
+    }
+    
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 15px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .loading-text {
+      font-size: 14px;
+      color: #333;
+      font-weight: 500;
+    }
+    
+    /* ========================================
+       NOTIFICATIONS
+    ======================================== */
+    .notification {
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      padding: 15px 20px;
+      border-radius: 8px;
+      color: white;
+      z-index: 1002;
+      max-width: 350px;
+      font-weight: 500;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      animation: slideIn 0.3s ease-out;
+      display: none;
+    }
+    
+    .notification.error { background: #e74c3c; }
+    .notification.success { background: #27ae60; }
+    .notification.info { background: #3498db; }
+    .notification.warning { background: #f39c12; }
+    
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    
+    /* ========================================
+       STATUS BAR
+    ======================================== */
+    .status {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 12px 18px;
+      border-radius: 8px;
+      z-index: 1000;
+      font-size: 13px;
+      max-width: 400px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* ========================================
+       CHART MODAL
+    ======================================== */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 2000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.7);
+      animation: fadeIn 0.3s ease-out;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    .modal-content {
+      background-color: #fefefe;
+      margin: 5% auto;
+      padding: 30px;
+      border-radius: 12px;
+      width: 80%;
+      max-width: 900px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+      animation: slideDown 0.3s ease-out;
+    }
+    
+    @keyframes slideDown {
+      from { transform: translateY(-50px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    
+    .close-modal {
+      color: #aaa;
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+      line-height: 20px;
+    }
+    
+    .close-modal:hover {
+      color: #000;
+    }
+    
+    .chart-container {
+      margin-top: 20px;
+      text-align: center;
+    }
+    
+    .chart-container img {
+      max-width: 100%;
+      border-radius: 8px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
+    /* ========================================
+       LEAFLET CUSTOM STYLES
+    ======================================== */
+    .leaflet-popup-content {
+      font-size: 13px;
+    }
+    
+    .popup-title {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 8px;
+      color: #333;
+    }
+    
+    .popup-item {
+      margin-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    .popup-label {
+      color: #666;
+    }
+    
+    .popup-value {
+      font-weight: 600;
+      color: #333;
+    }
+    
+    /* ========================================
+       RESPONSIVE
+    ======================================== */
+    @media (max-width: 768px) {
+      #controls {
+        top: 70px;
+        left: 10px;
+        right: 10px;
+        max-width: none;
+      }
+      
+      .dashboard {
+        top: auto;
+        bottom: 80px;
+        right: 10px;
+        left: 10px;
+        width: auto;
+      }
+      
+      .header h1 {
+        font-size: 16px;
+      }
+      
+      .legend {
+        right: 10px;
+        bottom: 80px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <h1>
+        <i class="fas fa-satellite"></i>
+        GeoAI Puno — NASA Space Apps Challenge 2026
+      </h1>
+      <div class="header-subtitle">
+        Reto Oficial: <strong>Be An Earth System Trend Detective!</strong> (2001–2025) | Pronóstico SAC (+16d) & Alerta Temprana
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="model-status" id="modelStatus">
+        <i class="fas fa-circle"></i>
+        <span>Modelos Listos</span>
+      </div>
+      <button id="toggleDashboard" style="width: auto; padding: 8px 16px; margin: 0;">
+        <i class="fas fa-chart-line"></i> Dashboard
+      </button>
+      <button id="exportBtn" style="width: auto; padding: 8px 16px; margin: 0;" class="success">
+        <i class="fas fa-download"></i> Exportar CSV
+      </button>
+      <button id="exportPdfBtn" style="width: auto; padding: 8px 16px; margin: 0; background: #c0392b; color: white;">
+        <i class="fas fa-file-pdf"></i> Informe PDF
+      </button>
+      <button id="exportGeoJsonBtn" style="width: auto; padding: 8px 16px; margin: 0; background: #27ae60; color: white;">
+        <i class="fas fa-globe"></i> GeoJSON
+      </button>
+    </div>
+  </div>
+  
+  <!-- MAP -->
+  <div id="map"></div>
+  
+  <!-- CONTROLS PANEL -->
+  <div id="controls">
+    <!-- SECTION: RETO OFICIAL NASA - TREND DETECTIVE (2001–2025) -->
+    <div class="control-section" style="border-left: 4px solid #3182ce; background: #f0f7ff;">
+      <h3 style="color: #2b6cb0;"><i class="fas fa-search-location"></i> Earth System Trend Detective</h3>
+      <p style="font-size: 11px; color: #4a5568; margin-bottom: 8px;">
+        Reto Oficial NASA: Detección multi-decadal de tendencias (2001–2025) con Mann-Kendall (Hamed & Rao 1998), FDR Benjamini-Hochberg y Pendiente de Sen (<em>p &lt; 0.05</em>).
+      </p>
+      
+      <label for="trendVarSelect">Variable Ambiental:</label>
+      <select id="trendVarSelect">
+        <option value="vhi" selected>🌾 VHI — Salud Vegetación/Térmico (MODIS 2001–2025, n=25)</option>
+        <option value="sm_fldas">💧 Humedad Radicular — NASA FLDAS Noah LSM (2001–2025, n=25)</option>
+        <option value="sm_smap">🛰️ Humedad Radicular — NASA SMAP L4 Satelital (2015–2025, n=11, baja potencia)</option>
+        <option value="spi_3">🌧️ SPI-3 — Anomalía Precipitación (CHIRPS 2001–2025, n=25)</option>
+        <option value="lst">🌡️ LST — Temp. Superficial Día/Noche (MODIS 2001–2025, n=25)</option>
+      </select>
+      
+      <div style="margin-top: 10px;">
+        <label for="trendYearSlider">Año de Inspección (Campaña Dic–Mar): <span id="trendYearLabel" style="font-weight: bold; color: #2b6cb0;">2025</span></label>
+        <input type="range" id="trendYearSlider" min="2001" max="2025" value="2025" style="width: 100%; cursor: pointer;">
+      </div>
+      
+      <button id="loadTrendMapBtn" class="primary" style="margin-top: 10px; background: #3182ce; color: white;">
+        <i class="fas fa-chart-line"></i> Ver Mapa de Tendencias (Sen & p&lt;0.05)
+      </button>
+      
+      <div id="trendSummaryBox" style="margin-top: 10px; padding: 10px; background: white; border-radius: 6px; font-size: 11px; border: 1px solid #bee3f8; display: none;">
+        <div style="margin-bottom: 4px;"><strong>% Secamiento Significativo (FDR p&lt;0.05):</strong> <span id="trendPctSecamiento" style="color: #c53030; font-weight: bold;">--</span></div>
+        <div style="margin-bottom: 4px;"><strong>Pendiente de Sen Media Regional:</strong> <span id="trendSlopeMedia" style="font-weight: bold;">--</span></div>
+        <div style="font-size: 10px; color: #718096; margin-top: 6px;"><i class="fas fa-info-circle"></i> Haz clic en el mapa sobre cualquier punto para ver el gráfico de su serie temporal 2001–2025.</div>
+      </div>
+    </div>
+
+    <!-- SECTION: ÍNDICES -->
+    <div class="control-section">
+      <h3><i class="fas fa-layer-group"></i> Índices de Sequía</h3>
+      <label for="layerSelect">Selecciona indicador:</label>
+      <select id="layerSelect">
+        <option value="spi">🌧️ SPI - Precipitación</option>
+        <option value="ndvi">🌱 NDVI - Vegetación</option>
+        <option value="vci">📈 VCI - Condición Vegetación</option>
+        <option value="lst-day">🌡️ LST - Temperatura</option>
+        <option value="soil-moisture">🏔️ SM - Humedad Suelo</option>
+      </select>
+      
+      <div id="spiOptions" style="margin-top: 10px;">
+        <label for="timestepSelect">Escala temporal SPI:</label>
+        <select id="timestepSelect">
+          <option value="1">SPI-1 (1 mes)</option>
+          <option value="3" selected>SPI-3 (3 meses)</option>
+          <option value="6">SPI-6 (6 meses)</option>
+          <option value="12">SPI-12 (12 meses)</option>
+        </select>
+      </div>
+      
+      <div id="ndviOptions" style="margin-top: 10px; display: none;">
+        <label for="ndviSource">Fuente NDVI:</label>
+        <select id="ndviSource">
+          <option value="modis">MODIS (250m)</option>
+          <option value="sentinel2">Sentinel-2 (10m)</option>
+        </select>
+      </div>
+      
+      <button id="loadLayerBtn">
+        <i class="fas fa-map"></i> Cargar Mapa
+      </button>
+    </div>
+    
+    <!-- SECTION: PREDICCIÓN MACHINE LEARNING & GeoAI -->
+    <div class="control-section">
+      <h3><i class="fas fa-brain"></i> Predicción de Sequía Agrícola</h3>
+      
+      <label for="modeSelect">Modo Operacional:</label>
+      <select id="modeSelect">
+        <option value="mode_b_forecast" selected>🛰️ Modo B: Pronóstico +16d (Alerta SAC)</option>
+        <option value="mode_a_gap_filling">☁️ Modo A: Diagnóstico (Gap-Filling Nubes)</option>
+      </select>
+      
+      <label for="modelSelect" style="margin-top: 8px;">Modelo Predictivo:</label>
+      <select id="modelSelect">
+        <option value="quantile_nn" selected>🧠 Red Neuronal Cuantil (90% CQR Calibrado)</option>
+        <option value="lightgbm_quantile">💡 LightGBM Quantile (0.05, 0.50, 0.95)</option>
+        <option value="xgboost">🚀 XGBoost Regressor (SOTA Puntual)</option>
+        <option value="random_forest">🌲 Random Forest Regressor</option>
+      </select>
+      
+      <label for="numSamples" style="margin-top: 10px;">Puntos de muestreo espacial:</label>
+      <input type="number" id="numSamples" value="400" min="50" max="1500" step="50">
+      
+      <button id="predictBtn" class="secondary" style="margin-top: 12px;">
+        <i class="fas fa-rocket"></i> Ejecutar Predicción
+      </button>
+      
+      <button id="showPredictionMap" style="display: none;" class="success">
+        <i class="fas fa-map-marked-alt"></i> Mapa VHI (Sequía)
+      </button>
+      
+      <button id="showUncertaintyMap" style="display: none;" class="warning">
+        <i class="fas fa-shield-alt"></i> Banda de Incertidumbre 90%
+      </button>
+    </div>
+    
+    <!-- SECTION: ANÁLISIS -->
+    <div class="control-section">
+      <h3><i class="fas fa-chart-bar"></i> Análisis</h3>
+      
+      <button id="showChartBtn" style="display: none;">
+        <i class="fas fa-chart-pie"></i> Gráfico de Severidad
+      </button>
+      
+      <button id="processBtn">
+        <i class="fas fa-sync"></i> Actualizar Datos GEE
+      </button>
+    </div>
+    
+    <!-- SECTION: SIMULADOR DE ESCENARIOS (COULD) -->
+    <div class="control-section">
+      <h3><i class="fas fa-temperature-high"></i> Simulador Climático (¿Qué pasaría si?)</h3>
+      <div style="font-size: 11px; color: #666; margin-bottom: 8px;">
+        Proyecta el impacto de calentamiento global y déficit hídrico en Puno:
+      </div>
+      
+      <label for="deltaTemp">Anomalía Térmica (ΔT °C):</label>
+      <input type="number" id="deltaTemp" value="1.5" step="0.5" min="-2.0" max="4.0" style="width: 100%; margin-bottom: 8px; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+      
+      <label for="deltaSm">Déficit Humedad Suelo (%):</label>
+      <input type="number" id="deltaSm" value="-20" step="5" min="-50" max="30" style="width: 100%; margin-bottom: 10px; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+      
+      <button id="simulateBtn" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+        <i class="fas fa-flask"></i> Simular Escenario de Estrés
+      </button>
+      
+      <div id="simulationResult" style="display: none; margin-top: 10px; padding: 10px; background: #fff5f5; border-radius: 6px; font-size: 11px; border: 1px solid #feb2b2;">
+      </div>
+    </div>
+  </div>
+  
+  <!-- DASHBOARD PANEL (US-38) -->
+  <div class="dashboard" id="dashboard" style="max-width: 380px;">
+    <h3><i class="fas fa-tachometer-alt"></i> Dashboard Agroclimático de Puno</h3>
+    
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+      <div class="stat-card" style="background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);">
+        <div class="stat-label">Sequía Crítica (%)</div>
+        <div class="stat-value" id="statCriticaPct">--</div>
+      </div>
+      
+      <div class="stat-card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+        <div class="stat-label">VHI Promedio</div>
+        <div class="stat-value" id="statMean">--</div>
+      </div>
+      
+      <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <div class="stat-label">Incertidumbre 90%</div>
+        <div class="stat-value" id="statUncertainty">--</div>
+      </div>
+      
+      <div class="stat-card" style="background: linear-gradient(135deg, #f7971e 0%, #ffd200 100%);">
+        <div class="stat-label">Puntos Evaluados</div>
+        <div class="stat-value" id="statPoints">--</div>
+      </div>
+    </div>
+    
+    <!-- Distritos Críticos -->
+    <div style="background: white; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #e53e3e;">
+      <h4 style="font-size: 13px; margin-bottom: 6px; color: #2d3748;">
+        <i class="fas fa-exclamation-triangle" style="color: #e53e3e;"></i> Sectores en Alerta Prioritaria:
+      </h4>
+      <div id="criticalDistrictsList" style="font-size: 12px; color: #4a5568; line-height: 1.4;">
+        Cargando distritos...
+      </div>
+    </div>
+    
+    <!-- Distribución de Severidad FAO -->
+    <div style="background: white; padding: 12px; border-radius: 8px; margin-top: 10px;">
+      <h4 style="font-size: 13px; margin-bottom: 10px; color: #333;">
+        Distribución de Sequía Agrícola (FAO / NOAA)
+      </h4>
+      
+      <div class="severity-item">
+        <div class="severity-label">🔴 Sequía extrema:</div>
+        <div class="severity-value" id="sevExtrema">0</div>
+        <div class="severity-bar"><div class="severity-fill" id="fillExtrema" style="background: #d73027;"></div></div>
+      </div>
+
+      <div class="severity-item">
+        <div class="severity-label">🟠 Sequía severa:</div>
+        <div class="severity-value" id="sevSevera">0</div>
+        <div class="severity-bar"><div class="severity-fill" id="fillSevera" style="background: #fc8d59;"></div></div>
+      </div>
+
+      <div class="severity-item">
+        <div class="severity-label">🟡 Sequía moderada:</div>
+        <div class="severity-value" id="sevModerada">0</div>
+        <div class="severity-bar"><div class="severity-fill" id="fillModerada" style="background: #fee08b;"></div></div>
+      </div>
+
+      <div class="severity-item">
+        <div class="severity-label">🟢 Sequía leve:</div>
+        <div class="severity-value" id="sevLeve">0</div>
+        <div class="severity-bar"><div class="severity-fill" id="fillLeve" style="background: #d9ef8b;"></div></div>
+      </div>
+
+      <div class="severity-item">
+        <div class="severity-label">🌲 Normal / Óptima:</div>
+        <div class="severity-value" id="sevOptima">0</div>
+        <div class="severity-bar"><div class="severity-fill" id="fillOptima" style="background: #1a9850;"></div></div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- LEGEND -->
+  <div class="legend" id="legend">
+    <h4>Leyenda</h4>
+    <div id="legendContent"></div>
+  </div>
+  
+  <!-- LOADING -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <div class="loading-text">Procesando...</div>
+  </div>
+  
+  <!-- NOTIFICATION -->
+  <div class="notification" id="notification"></div>
+  
+  <!-- STATUS BAR -->
+  <div class="status" id="status">
+    Sistema inicializado - Listo para operar
+  </div>
+  
+  <!-- CHART MODAL (US-42) -->
+  <div id="chartModal" class="modal">
+    <div class="modal-content">
+      <span class="close-modal">&times;</span>
+      <h2 style="margin-bottom: 15px;">
+        <i class="fas fa-chart-bar"></i> Distribución de Severidad de Sequía (FAO / NOAA)
+      </h2>
+      <div class="chart-container" id="chartContainer">
+        <p>Generando gráfico...</p>
+      </div>
+      <div style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px;">
+        <button id="downloadChartBtn" style="width: auto; background: #2b6cb0; color: white; padding: 8px 16px; border-radius: 6px;">
+          <i class="fas fa-download"></i> Descargar Imagen PNG (300 DPI - US-42)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TREND DETECTIVE SERIES MODAL -->
+  <div id="trendModal" class="modal">
+    <div class="modal-content" style="max-width: 800px;">
+      <span class="close-trend-modal" id="closeTrendModal" style="float: right; font-size: 28px; cursor: pointer; color: #718096;">&times;</span>
+      <h2 style="margin-bottom: 8px; color: #2b6cb0;">
+        <i class="fas fa-search-location"></i> <span id="trendModalTitle">Serie Histórica 2001–2025</span>
+      </h2>
+      <div id="trendModalMeta" style="font-size: 13px; color: #4a5568; margin-bottom: 12px; display: flex; gap: 15px; flex-wrap: wrap;"></div>
+      <div id="trendChartContainer" style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; min-height: 280px; overflow-x: auto;">
+        <p>Cargando serie temporal...</p>
+      </div>
+      <div style="margin-top: 10px; font-size: 11px; color: #718096; text-align: right;">
+        NASA Earth System Trend Detective — Mann-Kendall (Hamed & Rao 1998) + Benjamini-Hochberg FDR + Theil-Sen (p &lt; 0.05)
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPTS -->
+<script src="/static/js/leaflet.js"></script>
+<script>
+  if (typeof L === 'undefined') {
+    document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"><\/script>');
+  }
+</script>
+<script>
+  // ========================================
+  // INICIALIZACIÓN
+  // ========================================
+  
+  // Mapa
+  const map = L.map('map').setView([-15.84, -70.02], 8);
+  
+  // Capas base
+  const osmLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap',
+    maxZoom: 18
+  });
+  
+  const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: '© Esri',
+    maxZoom: 18
+  });
+
+  const cartoLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© CARTO',
+    subdomains: 'abcd',
+    maxZoom: 19
+  });
+  
+  const baseLayers = {
+    "Mapa": osmLayer,
+    "Claro": cartoLayer,
+    "Satélite": satelliteLayer
+  };
+  
+  osmLayer.addTo(map);
+  L.control.layers(baseLayers).addTo(map);
+  L.control.scale({ position: 'bottomright', imperial: false }).addTo(map);
+  
+  // Variables globales
+  let overlay = null;
+  let predictionLayer = null;
+  let currentLayerType = 'spi';
+  let lastPredictionData = null;
+  
+  // Elementos DOM
+  const elements = {
+    modelStatus: document.getElementById('modelStatus'),
+    layerSelect: document.getElementById('layerSelect'),
+    timestepSelect: document.getElementById('timestepSelect'),
+    ndviSource: document.getElementById('ndviSource'),
+    spiOptions: document.getElementById('spiOptions'),
+    ndviOptions: document.getElementById('ndviOptions'),
+    loadLayerBtn: document.getElementById('loadLayerBtn'),
+    predictBtn: document.getElementById('predictBtn'),
+    showPredictionMap: document.getElementById('showPredictionMap'),
+    showUncertaintyMap: document.getElementById('showUncertaintyMap'),
+    showChartBtn: document.getElementById('showChartBtn'),
+    processBtn: document.getElementById('processBtn'),
+    toggleDashboard: document.getElementById('toggleDashboard'),
+    exportBtn: document.getElementById('exportBtn'),
+    numSamples: document.getElementById('numSamples'),
+    loading: document.getElementById('loading'),
+    notification: document.getElementById('notification'),
+    status: document.getElementById('status'),
+    legend: document.getElementById('legend'),
+    dashboard: document.getElementById('dashboard'),
+    chartModal: document.getElementById('chartModal')
+  };
+  
+  // ========================================
+  // FUNCIONES AUXILIARES
+  // ========================================
+  
+  function showLoading(show, text = 'Procesando...') {
+    elements.loading.style.display = show ? 'block' : 'none';
+    elements.loading.querySelector('.loading-text').textContent = text;
+  }
+  
+  function updateStatus(message) {
+    elements.status.textContent = message;
+    elements.status.style.display = 'block';
+  }
+  
+  function showNotification(message, type = 'info', duration = 4000) {
+    elements.notification.textContent = message;
+    elements.notification.className = `notification ${type}`;
+    elements.notification.style.display = 'block';
+    
+    setTimeout(() => {
+      elements.notification.style.animation = 'slideOut 0.3s ease-out forwards';
+      setTimeout(() => {
+        elements.notification.style.display = 'none';
+        elements.notification.style.animation = 'slideIn 0.3s ease-out';
+      }, 300);
+    }, duration);
+  }
+  
+  function updateLegend(layerType, legendData = null) {
+    const legends = {
+      'spi': [
+        { color: '#d53e4f', label: 'Extremadamente seco (< -2)' },
+        { color: '#fc8d59', label: 'Severamente seco (-1.5 a -2)' },
+        { color: '#fee08b', label: 'Moderadamente seco (-1 a -1.5)' },
+        { color: '#ffffbf', label: 'Normal (-1 a 1)' },
+        { color: '#e6f598', label: 'Moderadamente húmedo (1 a 1.5)' },
+        { color: '#99d594', label: 'Muy húmedo (1.5 a 2)' },
+        { color: '#3288bd', label: 'Extremadamente húmedo (> 2)' }
+      ],
+      'ndvi': [
+        { color: '#8B4513', label: 'Sin vegetación (0 - 0.2)' },
+        { color: '#FFFF00', label: 'Vegetación escasa (0.2 - 0.4)' },
+        { color: '#9ACD32', label: 'Vegetación moderada (0.4 - 0.6)' },
+        { color: '#228B22', label: 'Vegetación densa (0.6 - 0.8)' },
+        { color: '#006400', label: 'Vegetación muy densa (0.8 - 1)' }
+      ],
+      'vci': [
+        { color: '#FF0000', label: 'Muy pobre (0 - 20)' },
+        { color: '#FFA500', label: 'Pobre (20 - 40)' },
+        { color: '#FFFF00', label: 'Regular (40 - 60)' },
+        { color: '#90EE90', label: 'Buena (60 - 80)' },
+        { color: '#008000', label: 'Excelente (80 - 100)' }
+      ],
+      'lst-day': [
+        { color: '#0000FF', label: 'Frío (< 10°C)' },
+        { color: '#00FFFF', label: 'Fresco (10 - 20°C)' },
+        { color: '#00FF00', label: 'Templado (20 - 30°C)' },
+        { color: '#FFFF00', label: 'Cálido (30 - 35°C)' },
+        { color: '#FFA500', label: 'Muy cálido (35 - 40°C)' },
+        { color: '#FF0000', label: 'Extremadamente cálido (> 40°C)' }
+      ],
+      'soil-moisture': [
+        { color: '#FF0000', label: 'Muy seco (< 10%)' },
+        { color: '#FFA500', label: 'Seco (10 - 20%)' },
+        { color: '#FFFF00', label: 'Moderado (20 - 30%)' },
+        { color: '#90EE90', label: 'Húmedo (30 - 40%)' },
+        { color: '#0000FF', label: 'Muy húmedo (> 40%)' }
+      ],
+      'prediction': [
+        { color: '#d73027', label: 'Sequía extrema (VHI < 10%)' },
+        { color: '#fc8d59', label: 'Sequía severa (VHI 10 - 20%)' },
+        { color: '#fee08b', label: 'Sequía moderada (VHI 20 - 30%)' },
+        { color: '#d9ef8b', label: 'Sequía leve (VHI 30 - 40%)' },
+        { color: '#1a9850', label: 'Normal / Óptima (VHI ≥ 40%)' }
+      ],
+      'uncertainty': [
+        { color: '#1a9850', label: 'Muy baja (Ancho < 5%)' },
+        { color: '#d9ef8b', label: 'Baja (Ancho 5 - 10%)' },
+        { color: '#fee08b', label: 'Moderada (Ancho 10 - 15%)' },
+        { color: '#fc8d59', label: 'Alta (Ancho 15 - 20%)' },
+        { color: '#d73027', label: 'Muy alta (Ancho > 20%)' }
+      ]
+    };
+    
+    const legendItems = legendData || legends[layerType];
+    
+    if (!legendItems) {
+      elements.legend.style.display = 'none';
+      return;
+    }
+    
+    const content = legendItems.map(item => `
+      <div class="legend-item">
+        <div class="legend-color" style="background: ${item.color}"></div>
+        <span>${item.label}</span>
+      </div>
+    `).join('');
+    
+    document.getElementById('legendContent').innerHTML = content;
+    elements.legend.style.display = 'block';
+  }
+  
+  function updateDashboard(stats) {
+    if (!stats) return;
+    
+    // Tarjetas principales (US-38)
+    document.getElementById('statCriticaPct').textContent = (stats.pct_critical_drought || 0) + '%';
+    document.getElementById('statMean').textContent = stats.mean_prediction.toFixed(1) + '%';
+    document.getElementById('statUncertainty').textContent = '±' + (stats.mean_uncertainty / 2.0).toFixed(1) + '%';
+    document.getElementById('statPoints').textContent = stats.total_points;
+    
+    // Distritos en Alerta Prioritaria
+    const distContainer = document.getElementById('criticalDistrictsList');
+    if (stats.critical_districts && stats.critical_districts.length > 0) {
+      distContainer.innerHTML = stats.critical_districts.map(d => `<div style="margin-bottom: 3px;">📍 <b>${d}</b></div>`).join('');
+    } else {
+      distContainer.innerHTML = '<span style="color: #38a169;">✅ No se detectan anomalías extremas en las capitales provinciales.</span>';
+    }
+    
+    const severity = stats.severity_distribution || {};
+    const total = stats.total_points || 1;
+    
+    const cExtrema = severity['Sequía extrema'] || 0;
+    const cSevera = severity['Sequía severa'] || 0;
+    const cModerada = severity['Sequía moderada'] || 0;
+    const cLeve = severity['Sequía leve'] || 0;
+    const cOptima = severity['Normal / Óptima'] || 0;
+    
+    // Valores numéricos
+    document.getElementById('sevExtrema').textContent = `${cExtrema} (${(cExtrema/total*100).toFixed(1)}%)`;
+    document.getElementById('sevSevera').textContent = `${cSevera} (${(cSevera/total*100).toFixed(1)}%)`;
+    document.getElementById('sevModerada').textContent = `${cModerada} (${(cModerada/total*100).toFixed(1)}%)`;
+    document.getElementById('sevLeve').textContent = `${cLeve} (${(cLeve/total*100).toFixed(1)}%)`;
+    document.getElementById('sevOptima').textContent = `${cOptima} (${(cOptima/total*100).toFixed(1)}%)`;
+    
+    // Barras de progreso
+    document.getElementById('fillExtrema').style.width = (cExtrema / total * 100) + '%';
+    document.getElementById('fillSevera').style.width = (cSevera / total * 100) + '%';
+    document.getElementById('fillModerada').style.width = (cModerada / total * 100) + '%';
+    document.getElementById('fillLeve').style.width = (cLeve / total * 100) + '%';
+    document.getElementById('fillOptima').style.width = (cOptima / total * 100) + '%';
+    
+    // Mostrar dashboard
+    elements.dashboard.style.display = 'block';
+  }
+  
+  // ========================================
+  // CARGAR CAPAS DE ÍNDICES
+  // ========================================
+  
+  async function loadLayer(type, params = {}) {
+    try {
+      showLoading(true, `Cargando ${getLayerName(type)}...`);
+      updateStatus(`Cargando ${getLayerName(type)}...`);
+      
+      let url = `/${type}-map`;
+      if (Object.keys(params).length > 0) {
+        const queryString = new URLSearchParams(params).toString();
+        url += `?${queryString}`;
+      }
+      
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Error HTTP: ${res.status}`);
+      
+      const data = await res.json();
+      
+      if (data.error) throw new Error(data.error);
+      
+      // Remover overlay anterior
+      if (overlay) {
+        map.removeLayer(overlay);
+      }
+      
+      // Agregar nueva capa (soporta tanto raster continuo Kriging como tile layer)
+      if (data.image_url && data.bounds) {
+        overlay = L.imageOverlay(data.image_url, data.bounds, { 
+          attribution: data.method || 'Kriging GeoAI Puno',
+          opacity: 0.8
+        });
+        overlay.addTo(map);
+      } else if (data.tile_url) {
+        overlay = L.tileLayer(data.tile_url, { 
+          attribution: 'Google Earth Engine',
+          opacity: 0.7
+        });
+        overlay.addTo(map);
+      }
+      
+      currentLayerType = type;
+      updateLegend(type, data.legend);
+      updateStatus(`${getLayerName(type)} cargado - ${data.resolution || ''}`);
+      showNotification(`${getLayerName(type)} cargado exitosamente`, 'success');
+      
+    } catch (error) {
+      console.error('Error cargando capa:', error);
+      updateStatus(`Error: ${error.message}`);
+      showNotification(`Error al cargar ${getLayerName(type)}`, 'error');
+    } finally {
+      showLoading(false);
+    }
+  }
+  
+  function getLayerName(type) {
+    const names = {
+      'spi': 'SPI',
+      'ndvi': 'NDVI',
+      'vci': 'VCI',
+      'lst-day': 'LST',
+      'soil-moisture': 'Humedad del Suelo',
+      'prediction': 'Predicciones',
+      'uncertainty': 'Incertidumbre'
+    };
+    return names[type] || type;
+  }
+  
+  // ========================================
+  // PREDICCIÓN CON SDCNN
+  // ========================================
+  
+  async function runPrediction() {
+    try {
+      // ✅ Validación de inputs ANTES de enviar request
+      const numSamples = elements.numSamples && elements.numSamples.value 
+        ? parseInt(elements.numSamples.value) 
+        : 400;
+      
+      if (isNaN(numSamples) || numSamples < 100 || numSamples > 2000) {
+        showNotification('⚠️ Número de muestras debe estar entre 100-2000', 'warning');
+        return;
+      }
+      
+      // ✅ Mostrar loading
+      showLoading(true, 'Ejecutando predicción espacial de sequía agrícola...');
+      
+      const modelType = document.getElementById('modelSelect') ? document.getElementById('modelSelect').value : 'quantile_nn';
+      const modeVal = document.getElementById('modeSelect') ? document.getElementById('modeSelect').value : 'mode_b_forecast';
+      updateStatus(`🤖 Inferencia en proceso con ${modelType} (${modeVal})...`);
+      
+      // ✅ Realizar petición al servidor
+      const res = await fetch('/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          num_samples: numSamples,
+          model_type: modelType,
+          mode: modeVal
+        })
+      });
+      
+      if (!res.ok) throw new Error(`Error HTTP: ${res.status}`);
+      
+      const data = await res.json();
+      
+      if (data.status === 'error') throw new Error(data.message);
+      
+      // ✅ Guardar datos de predicción
+      lastPredictionData = data;
+      
+      // ✅ Actualizar dashboard
+      updateDashboard(data.statistics);
+      
+      // ✅ Remover capa anterior de predicciones
+      if (predictionLayer) {
+        map.removeLayer(predictionLayer);
+      }
+      
+      // ✅ Agregar puntos de predicción al mapa (US-34, US-37)
+      predictionLayer = L.geoJSON(data.geojson, {
+        pointToLayer: function(feature, latlng) {
+          const color = feature.properties.color || '#3388ff';
+          
+          return L.circleMarker(latlng, {
+            radius: 7,
+            fillColor: color,
+            color: '#222',
+            weight: 1,
+            opacity: 1,
+            fillOpacity: 0.85
+          });
+        },
+        onEachFeature: function(feature, layer) {
+          const props = feature.properties;
+          
+          // ✅ POPUP MEJORADO COMPLETO (US-37)
+          const popupContent = `
+            <div style="font-family: Arial, sans-serif; min-width: 280px; max-width: 350px;">
+              <h4 style="margin: 0 0 10px 0; color: #2c3e50; border-bottom: 2px solid #2b5c8f; padding-bottom: 6px;">
+                📍 Punto de Diagnóstico Agrícola
+              </h4>
+              
+              <div style="background: linear-gradient(135deg, #2b5c8f 0%, #1a365d 100%); padding: 12px; border-radius: 8px; margin-bottom: 10px; color: white;">
+                <div style="font-size: 12px; margin-bottom: 2px; opacity: 0.9;">VHI Predicho (Salud Vegetal):</div>
+                <div style="font-size: 24px; font-weight: bold;">
+                  ${props.prediction.toFixed(1)}%
+                </div>
+                <div style="font-size: 11px; margin-top: 4px; opacity: 0.95;">
+                  Intervalo al 90%: [${props.q05.toFixed(1)}% - ${props.q95.toFixed(1)}%]
+                </div>
+                <div style="font-size: 11px; opacity: 0.85;">
+                  Banda Incertidumbre: ±${(props.uncertainty/2).toFixed(1)}% (Ancho: ${props.uncertainty.toFixed(1)}%)
+                </div>
+              </div>
+              
+              <div style="background: #f8f9fa; padding: 8px 10px; border-radius: 6px; margin-bottom: 10px;">
+                <div style="font-size: 11px; font-weight: bold; color: #495057;">
+                  Nivel de Sequía Agrícola (FAO):
+                </div>
+                <div style="font-size: 15px; font-weight: bold; color: ${props.color};">
+                  ${props.severity}
+                </div>
+                ${props.sac_trigger ? `
+                  <div style="margin-top: 6px; padding: 4px 6px; background: #fff5f5; border: 1px solid #feb2b2; border-radius: 4px; color: #c53030; font-size: 11px; font-weight: bold;">
+                    🚨 GATILLO SAC ACTIVO (P(VHI<20) = ${(props.p_vhi_lt_20*100).toFixed(1)}%)
+                  </div>
+                ` : `
+                  <div style="margin-top: 4px; font-size: 10px; color: #718096;">
+                    P(VHI < 20): ${(props.p_vhi_lt_20*100).toFixed(1)}% (SAC Inactivo)
+                  </div>
+                `}
+              </div>
+              
+              <div>
+                <div style="font-weight: bold; color: #495057; margin-bottom: 6px; font-size: 12px;">
+                  📊 Covariables Físicas y Topográficas
+                </div>
+                <table style="width: 100%; font-size: 11px; border-collapse: collapse;">
+                  <tr style="border-bottom: 1px solid #e9ecef;">
+                    <td style="padding: 4px 0; color: #6c757d;">Distancia Lago Titicaca:</td>
+                    <td style="padding: 4px 0; text-align: right; font-weight: bold; color: #2b6cb0;">${props.dist_lake ? props.dist_lake.toFixed(1) + ' km' : 'N/A'}</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #e9ecef;">
+                    <td style="padding: 4px 0; color: #6c757d;">Humedad de Suelo (SMAP):</td>
+                    <td style="padding: 4px 0; text-align: right; font-weight: bold; color: #0288d1;">${props.sm.toFixed(3)} m³/m³</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #e9ecef;">
+                    <td style="padding: 4px 0; color: #6c757d;">LST (Temp. Superficie):</td>
+                    <td style="padding: 4px 0; text-align: right; font-weight: bold; color: #d9534f;">${props.lst.toFixed(1)} °C</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 4px 0; color: #6c757d;">Altitud (DEM):</td>
+                    <td style="padding: 4px 0; text-align: right; font-weight: bold; color: #555;">${props.dem.toFixed(0)} m.s.n.m.</td>
+                  </tr>
+                </table>
+              </div>
+            </div>
+          `;
+          
+          layer.bindPopup(popupContent, {
+            maxWidth: 400,
+            className: 'custom-popup'
+          });
+        }
+      });
+      
+      predictionLayer.addTo(map);
+      
+      // ✅ Actualizar leyenda
+      updateLegend('prediction');
+      
+      // ✅ Mostrar botones de mapas adicionales
+      elements.showPredictionMap.style.display = 'block';
+      elements.showUncertaintyMap.style.display = 'block';
+      elements.showChartBtn.style.display = 'block';
+      
+      // ✅ Zoom automático a la región con predicciones
+      if (data.geojson.features.length > 0) {
+        const bounds = L.geoJSON(data.geojson).getBounds();
+        map.fitBounds(bounds, { padding: [50, 50] });
+      }
+      
+      updateStatus(`✅ Predicción completada: ${data.statistics.total_points} puntos analizados`);
+      showNotification(`🎉 ${data.message}`, 'success', 5000);
+      
+      console.log('📊 Estadísticas de predicción:', data.statistics);
+      
+    } catch (error) {
+      console.error('❌ Error en predicción:', error);
+      updateStatus(`❌ Error: ${error.message}`);
+      showNotification(`Error en predicción: ${error.message}`, 'error', 8000);
+    } finally {
+      showLoading(false);
+    }
+  }
+  
+  // ✅ Función auxiliar para colores de severidad de sequía agrícola (VHI - FAO/OMM)
+  function getSeverityColorHex(vhi) {
+    if (vhi < 10.0) return '#d73027';      // Rojo: Sequía extrema
+    if (vhi < 20.0) return '#fc8d59';      // Naranja: Sequía severa
+    if (vhi < 30.0) return '#fee08b';      // Amarillo: Sequía moderada
+    if (vhi < 40.0) return '#d9ef8b';      // Verde claro: Sequía leve
+    return '#1a9850';                       // Verde oscuro: Normal / Óptima
+  }
+  
+  // ✅ Función auxiliar para colores de severidad (RGB - legacy)
+  function getSeverityColor(prediction) {
+    if (prediction < 5) return '#00FF00';
+    if (prediction < 15) return '#FFFF00';
+    if (prediction < 30) return '#FFA500';
+    return '#FF0000';
+  }
+  
+  // ========================================
+  // MAPAS DE PREDICCIÓN E INCERTIDUMBRE
+  // ========================================
+  
+  async function loadPredictionMap() {
+    try {
+      showLoading(true, 'Generando mapa continuo ML (kriging residual omitido por Moran p=0.26)...');
+      
+      const res = await fetch('/prediction-map');
+      if (!res.ok) throw new Error(`Error HTTP: ${res.status}`);
+      
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      
+      // Remover overlay anterior
+      if (overlay) map.removeLayer(overlay);
+      
+      // Agregar mapa continuo de Predicción ML
+      if (data.image_url && data.bounds) {
+        overlay = L.imageOverlay(data.image_url, data.bounds, {
+          opacity: 0.80,
+          attribution: data.method || 'Malla Continua ML (GeoAI Puno)'
+        });
+        overlay.addTo(map);
+      } else if (data.tile_url) {
+        overlay = L.tileLayer(data.tile_url, { opacity: 0.7 });
+        overlay.addTo(map);
+      }
+      
+      updateLegend('prediction');
+      updateStatus('Superficie continua ML de Sequía Agrícola (VHI) cargada');
+      showNotification('Superficie continua ML cargada (kriging omitido por Moran p=0.26)', 'success');
+      
+    } catch (error) {
+      console.error('Error:', error);
+      showNotification(error.message, 'error');
+    } finally {
+      showLoading(false);
+    }
+  }
+  
+  async function loadUncertaintyMap() {
+    try {
+      showLoading(true, 'Interpolando mapa continuo de incertidumbre al 90%...');
+      
+      const res = await fetch('/uncertainty-map');
+      if (!res.ok) throw new Error(`Error HTTP: ${res.status}`);
+      
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      
+      // Remover overlay anterior
+      if (overlay) map.removeLayer(overlay);
+      
+      // Agregar mapa continuo de incertidumbre
+      if (data.image_url && data.bounds) {
+        overlay = L.imageOverlay(data.image_url, data.bounds, {
+          opacity: 0.80,
+          attribution: 'Incertidumbre Kriging 90% [q95 - q05]'
+        });
+        overlay.addTo(map);
+      } else if (data.tile_url) {
+        overlay = L.tileLayer(data.tile_url, { opacity: 0.7 });
+        overlay.addTo(map);
+      }
+      
+      updateLegend('uncertainty');
+      updateStatus('Superficie continua de Incertidumbre al 90% cargada');
+      showNotification('Superficie continua de incertidumbre (Kriging) cargada', 'success');
+      
+    } catch (error) {
+      console.error('Error:', error);
+      showNotification(error.message, 'error');
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  // ========================================
+  // EXPORTACIÓN INFORME PDF (US-41)
+  // ========================================
+  
+  async function exportPdfReport() {
+    if (!lastPredictionData) {
+      showNotification('Ejecuta una predicción primero antes de generar el informe PDF', 'warning');
+      return;
+    }
+    
+    try {
+      showLoading(true, 'Compilando informe técnico oficial en PDF (ReportLab)...');
+      
+      const res = await fetch('/export-pdf-report');
+      if (!res.ok) throw new Error(`Error HTTP: ${res.status}`);
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `informe_alerta_sequia_puno_${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      
+      showNotification('Informe Técnico PDF descargado exitosamente', 'success');
+      
+    } catch (error) {
+      console.error('Error:', error);
+      showNotification(`Error exportando PDF: ${error.message}`, 'error');
+    } finally {
+      showLoading(false);
+    }
+  }
+  
+  // ========================================
+  // GRÁFICO DE SEVERIDAD
+  // ========================================
+  
+  async function showSeverityChart() {
+    try {
+      elements.chartModal.style.display = 'block';
+      document.getElementById('chartContainer').innerHTML = '<p>Generando gráfico...</p>';
+      
+      const res = await fetch('/generate-chart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!res.ok) throw new Error(`Error HTTP: ${res.status}`);
+      
+      const data = await res.json();
+      
+      if (data.error) throw new Error(data.error);
+      
+      document.getElementById('chartContainer').innerHTML = 
+        `<img src="${data.image}" alt="Gráfico de Severidad">`;
+      
+    } catch (error) {
+      console.error('Error:', error);
+      document.getElementById('chartContainer').innerHTML = 
+        `<p style="color: red;">Error generando gráfico: ${error.message}</p>`;
+    }
+  }
+  
+  // ========================================
+  // EXPORTACIÓN
+  // ========================================
+  
+  async function exportPredictions() {
+    if (!lastPredictionData) {
+      showNotification('No hay predicciones para exportar', 'warning');
+      return;
+    }
+    
+    try {
+      showLoading(true, 'Exportando predicciones...');
+      
+      const res = await fetch('/export-predictions');
+      if (!res.ok) throw new Error(`Error HTTP: ${res.status}`);
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `predictions_puno_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      
+      showNotification('Predicciones exportadas exitosamente', 'success');
+      
+    } catch (error) {
+      console.error('Error:', error);
+      showNotification(`Error exportando: ${error.message}`, 'error');
+    } finally {
+      showLoading(false);
+    }
+  }
+  
+  // ========================================
+  // ACTUALIZAR DATOS GEE
+  // ========================================
+  
+  async function processData() {
+    try {
+      elements.processBtn.disabled = true;
+      showLoading(true, 'Actualizando datos satelitales...');
+      updateStatus('Actualizando datos desde GEE...');
+      
+      const res = await fetch('/process-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!res.ok) throw new Error(`Error HTTP: ${res.status}`);
+      
+      const data = await res.json();
+      
+      if (data.status === 'error') throw new Error(data.message);
+      
+      updateStatus(data.message || 'Datos actualizados');
+      showNotification('Datos actualizados correctamente', 'success');
+      
+      // Recargar capa actual
+      setTimeout(() => {
+        const params = currentLayerType === 'spi' 
+          ? { timestep: elements.timestepSelect ? elements.timestepSelect.value : '3' }
+          : currentLayerType === 'ndvi'
+          ? { source: elements.ndviSource ? elements.ndviSource.value : 'modis' }
+          : {};
+        loadLayer(currentLayerType, params);
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Error:', error);
+      updateStatus(`Error: ${error.message}`);
+      showNotification(`Error: ${error.message}`, 'error');
+    } finally {
+      if (elements.processBtn) elements.processBtn.disabled = false;
+      showLoading(false);
+    }
+  }
+  
+  // ========================================
+  // VERIFICAR ESTADO DEL MODELO
+  // ========================================
+  
+  async function checkModelStatus() {
+    try {
+      const res = await fetch('/model-info');
+      const data = await res.json();
+      
+      if (data.status === 'loaded') {
+        if (elements.modelStatus) {
+          elements.modelStatus.classList.add('loaded');
+          elements.modelStatus.classList.remove('not-loaded');
+          elements.modelStatus.innerHTML = '<i class="fas fa-check-circle"></i> <span>Modelo Cargado</span>';
+        }
+        if (elements.predictBtn) elements.predictBtn.disabled = false;
+      } else {
+        if (elements.modelStatus) {
+          elements.modelStatus.classList.add('not-loaded');
+          elements.modelStatus.classList.remove('loaded');
+          elements.modelStatus.innerHTML = '<i class="fas fa-times-circle"></i> <span>Modelo No Cargado</span>';
+        }
+        if (elements.predictBtn) elements.predictBtn.disabled = true;
+        showNotification('Modelo no encontrado. Ejecutar train_model.py primero', 'warning', 6000);
+      }
+    } catch (error) {
+      console.error('Error verificando modelo:', error);
+      if (elements.modelStatus) {
+        elements.modelStatus.classList.add('not-loaded');
+        elements.modelStatus.innerHTML = '<i class="fas fa-exclamation-circle"></i> <span>Error</span>';
+      }
+    }
+  }
+    
+    // ========================================
+    // EVENT LISTENERS
+    // ========================================
+    
+    // Cambio de capa
+    if (elements.layerSelect) {
+      elements.layerSelect.addEventListener('change', (e) => {
+        const value = e.target.value;
+        if (elements.spiOptions) elements.spiOptions.style.display = value === 'spi' ? 'block' : 'none';
+        if (elements.ndviOptions) elements.ndviOptions.style.display = value === 'ndvi' ? 'block' : 'none';
+      });
+    }
+    
+    // Cargar capa
+    if (elements.loadLayerBtn) {
+      elements.loadLayerBtn.addEventListener('click', () => {
+        const layerType = elements.layerSelect ? elements.layerSelect.value : 'vci';
+        const params = layerType === 'spi' 
+          ? { timestep: elements.timestepSelect ? elements.timestepSelect.value : '3' }
+          : layerType === 'ndvi'
+          ? { source: elements.ndviSource ? elements.ndviSource.value : 'modis' }
+          : {};
+        
+        loadLayer(layerType, params);
+      });
+    }
+
+    if (elements.predictBtn) {
+      elements.predictBtn.addEventListener('click', () => {
+        const numSamples = elements.numSamples && elements.numSamples.value ? parseInt(elements.numSamples.value) : 400;
+        if (isNaN(numSamples) || numSamples < 100 || numSamples > 2000) {
+          showNotification('Número de muestras debe estar entre 100-2000', 'warning');
+          return;
+        }
+        runPrediction();
+      });
+    }
+    
+    // Mapas de predicción
+    elements.showPredictionMap.addEventListener('click', loadPredictionMap);
+    elements.showUncertaintyMap.addEventListener('click', loadUncertaintyMap);
+    
+    // Gráfico
+    elements.showChartBtn.addEventListener('click', showSeverityChart);
+    
+    // Procesar datos
+    elements.processBtn.addEventListener('click', processData);
+    
+    // Toggle dashboard
+    elements.toggleDashboard.addEventListener('click', () => {
+      const isVisible = elements.dashboard.style.display === 'block';
+      elements.dashboard.style.display = isVisible ? 'none' : 'block';
+    });
+    
+    // Exportar
+    elements.exportBtn.addEventListener('click', () => {
+      if (!lastPredictionData) {
+        showNotification('Ejecutar predicción primero', 'warning');
+        return;
+      }
+      
+      // Menú de opciones
+      if (confirm('¿Exportar como CSV?')) {
+        exportPredictions();
+      }
+    });
+    
+    // Exportar Informe PDF (US-41)
+    const exportPdfBtn = document.getElementById('exportPdfBtn');
+    if (exportPdfBtn) {
+      exportPdfBtn.addEventListener('click', exportPdfReport);
+    }
+    
+    // Exportar Capa GeoJSON para SIG (Could)
+    const exportGeoJsonBtn = document.getElementById('exportGeoJsonBtn');
+    if (exportGeoJsonBtn) {
+      exportGeoJsonBtn.addEventListener('click', () => {
+        if (!lastPredictionData) {
+          showNotification('Ejecutar predicción primero para exportar GeoJSON', 'warning');
+          return;
+        }
+        window.location.href = '/export-geojson';
+        showNotification('Descargando capa GeoJSON para QGIS/ArcGIS...', 'success');
+      });
+    }
+    
+    // Descargar Gráfico PNG en Alta Resolución (US-42 - Could)
+    const downloadChartBtn = document.getElementById('downloadChartBtn');
+    if (downloadChartBtn) {
+      downloadChartBtn.addEventListener('click', () => {
+        if (!lastPredictionData) {
+          showNotification('Ejecutar predicción primero', 'warning');
+          return;
+        }
+        window.location.href = '/export-chart-png';
+        showNotification('Descargando gráfico PNG (300 DPI)...', 'success');
+      });
+    }
+    
+    // Simulador de Escenarios de Estrés Climático (Could)
+    const simulateBtn = document.getElementById('simulateBtn');
+    if (simulateBtn) {
+      simulateBtn.addEventListener('click', async () => {
+        const deltaTemp = parseFloat(document.getElementById('deltaTemp').value) || 0;
+        const deltaSm = parseFloat(document.getElementById('deltaSm').value) || 0;
+        const modelSelect = document.getElementById('modelSelect') ? document.getElementById('modelSelect').value : 'xgboost';
+        const resDiv = document.getElementById('simulationResult');
+        
+        try {
+          showLoading(true, 'Simulando escenario de estrés climático...');
+          resDiv.style.display = 'block';
+          resDiv.innerHTML = '<i>Calculando perturbación biofísica regional...</i>';
+          
+          const res = await fetch('/simulate-scenario', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              delta_temp: deltaTemp,
+              delta_sm_pct: deltaSm,
+              model_type: modelSelect
+            })
+          });
+          
+          if (!res.ok) throw new Error(`Error HTTP: ${res.status}`);
+          const simData = await res.json();
+          if (simData.error) throw new Error(simData.error);
+          
+          const imp = simData.impact;
+          const sim = simData.simulated;
+          const base = simData.baseline;
+          
+          resDiv.innerHTML = `
+            <div style="font-weight: bold; color: #c53030; margin-bottom: 5px;">
+              🚨 Proyección de Impacto Climático:
+            </div>
+            <div>• Caída promedio en VHI: <b>-${imp.vhi_drop}%</b> (de ${base.mean_vhi}% a ${sim.mean_vhi}%)</div>
+            <div>• Aumento de área crítica: <b>+${imp.critical_area_increase_pct}%</b></div>
+            <div>• Sup. en Sequía Severa/Extrema: <b>${sim.pct_critical_drought}%</b></div>
+            <div style="margin-top: 5px; color: #742a2a; font-size: 10px;">
+              <i>Simulación ejecutada con ${simData.scenario.model_used.toUpperCase()}</i>
+            </div>
+          `;
+          showNotification(`Simulación completada: incremento de +${imp.critical_area_increase_pct}% en sequía crítica`, 'warning', 5000);
+        } catch (err) {
+          console.error('Error en simulación:', err);
+          resDiv.innerHTML = `<span style="color: red;">Error: ${err.message}</span>`;
+          showNotification(`Error en simulación: ${err.message}`, 'error');
+        } finally {
+          showLoading(false);
+        }
+      });
+    }
+    
+    // Cerrar modal
+    document.querySelector('.close-modal').addEventListener('click', () => {
+      elements.chartModal.style.display = 'none';
+    });
+    
+    window.addEventListener('click', (e) => {
+      if (e.target === elements.chartModal) {
+        elements.chartModal.style.display = 'none';
+      }
+    });
+    
+    // Coordenadas al hacer clic
+    map.on('click', function(e) {
+      const lat = e.latlng.lat.toFixed(4);
+      const lng = e.latlng.lng.toFixed(4);
+      updateStatus(`Coordenadas: ${lat}, ${lng}`);
+      if (isTrendModeActive) {
+        openTrendSeriesModal(e.latlng.lat, e.latlng.lng);
+      }
+    });
+
+    // ========================================
+    // NASA TREND DETECTIVE (2001–2025) LOGIC
+    // ========================================
+    const trendVarSelect = document.getElementById('trendVarSelect');
+    const trendYearSlider = document.getElementById('trendYearSlider');
+    const trendYearLabel = document.getElementById('trendYearLabel');
+    const loadTrendMapBtn = document.getElementById('loadTrendMapBtn');
+    const trendSummaryBox = document.getElementById('trendSummaryBox');
+    const trendPctSecamiento = document.getElementById('trendPctSecamiento');
+    const trendSlopeMedia = document.getElementById('trendSlopeMedia');
+    const trendModal = document.getElementById('trendModal');
+    const closeTrendModal = document.getElementById('closeTrendModal');
+    const trendChartContainer = document.getElementById('trendChartContainer');
+    const trendModalTitle = document.getElementById('trendModalTitle');
+    const trendModalMeta = document.getElementById('trendModalMeta');
+
+    let isTrendModeActive = false;
+
+    if (trendYearSlider && trendYearLabel) {
+      trendYearSlider.addEventListener('input', (e) => {
+        trendYearLabel.textContent = e.target.value;
+      });
+    }
+
+    async function loadTrendMap() {
+      const varCode = trendVarSelect ? trendVarSelect.value : 'vhi';
+      try {
+        showLoading(true, 'Generando mapa de tendencias multi-decadales (Mann-Kendall + Sen)...');
+        updateStatus(`Calculando pendientes de Sen para ${varCode.toUpperCase()} (2001-2025)...`);
+
+        const resMap = await fetch(`/trend-map?variable=${varCode}`);
+        if (!resMap.ok) throw new Error(`Error HTTP: ${resMap.status}`);
+        const dataMap = await resMap.json();
+
+        if (overlay) map.removeLayer(overlay);
+        if (predictionLayer) map.removeLayer(predictionLayer);
+
+        overlay = L.imageOverlay(dataMap.image_url, dataMap.bounds, { opacity: 0.82 }).addTo(map);
+        map.fitBounds(dataMap.bounds);
+        isTrendModeActive = true;
+
+        const resOverview = await fetch(`/api/trends?variable=${varCode}`);
+        if (resOverview.ok) {
+          const dataOv = await resOverview.json();
+          if (dataOv.status === 'success' && dataOv.data) {
+            const ov = dataOv.data;
+            trendPctSecamiento.textContent = `${ov.pct_significant_decrease}% (${ov.pct_significant_increase}% mejora)`;
+            trendSlopeMedia.textContent = `${ov.mean_sen_slope_annual > 0 ? '+' : ''}${ov.mean_sen_slope_annual} ${ov.unit}/año (p mediano: ${ov.median_p_value})`;
+            trendSummaryBox.style.display = 'block';
+          }
+        }
+
+        showNotification(`Mapa de Tendencias cargado: ${varCode.toUpperCase()} (2001-2025)`, 'success');
+        updateStatus(`Mapa de Tendencias activo - Clic en cualquier punto para ver serie temporal.`);
+      } catch (err) {
+        console.error('Error cargando mapa de tendencias:', err);
+        showNotification(`Error: ${err.message}`, 'error');
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    if (loadTrendMapBtn) {
+      loadTrendMapBtn.addEventListener('click', loadTrendMap);
+    }
+
+    async function openTrendSeriesModal(lat, lng) {
+      const varCode = trendVarSelect ? trendVarSelect.value : 'vhi';
+      if (!trendModal) return;
+      trendModal.style.display = 'block';
+      trendModalTitle.textContent = `Serie Histórica: ${varCode.toUpperCase()} [${lat.toFixed(3)}, ${lng.toFixed(3)}]`;
+      trendModalMeta.innerHTML = `<span style="background: #edf2f7; padding: 4px 8px; border-radius: 4px;">Lat: ${lat.toFixed(4)}, Lon: ${lng.toFixed(4)}</span>`;
+      trendChartContainer.innerHTML = '<p style="padding: 20px; color: #718096;"><i class="fas fa-spinner fa-spin"></i> Cargando serie temporal y prueba Mann-Kendall...</p>';
+
+      try {
+        const res = await fetch(`/trend-series?variable=${varCode}&lat=${lat}&lon=${lng}`);
+        if (!res.ok) throw new Error(`Error HTTP: ${res.status}`);
+        const data = await res.json();
+
+        trendModalTitle.textContent = `Serie Histórica ${data.years[0]}–${data.years[data.years.length - 1]} (${data.sensor}): ${data.variable_name} [${lat.toFixed(3)}, ${lng.toFixed(3)}]`;
+
+        const sigBadge = data.is_significant 
+          ? `<span style="background: #fed7d7; color: #9b2c2c; padding: 3px 8px; border-radius: 4px; font-weight: bold;">Significativa FDR (p=${data.p_fdr} &lt; 0.05)</span>`
+          : `<span style="background: #edf2f7; color: #4a5568; padding: 3px 8px; border-radius: 4px;">No significativa FDR (p=${data.p_fdr})</span>`;
+
+        const powerWarning = data.power_note 
+          ? `<span style="background: #feebc8; color: #7b341e; padding: 3px 8px; border-radius: 4px; font-size: 11px;">⚠️ ${data.power_note}</span>`
+          : '';
+
+        trendModalMeta.innerHTML = `
+          <span style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px;"><strong>Celda:</strong> ${data.cell_id}</span>
+          <span style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px;"><strong>Pendiente de Sen:</strong> ${data.sen_slope > 0 ? '+' : ''}${data.sen_slope} ${data.unit}/año</span>
+          <span style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px;"><strong>Autocorr lag-1:</strong> ${data.lag1_autocorr} | <strong>Hamed-Rao p:</strong> ${data.p_hamed_rao}</span>
+          ${sigBadge}
+          ${powerWarning}
+        `;
+
+        renderTrendSvgChart(data);
+      } catch (err) {
+        trendChartContainer.innerHTML = `<p style="color: red; padding: 20px;">Error cargando serie: ${err.message}</p>`;
+      }
+    }
+
+    function renderTrendSvgChart(data) {
+      const years = data.years;
+      const values = data.values;
+      const trendLine = data.trend_line;
+      const n = years.length;
+
+      const width = 720;
+      const height = 260;
+      const padL = 55;
+      const padR = 25;
+      const padT = 25;
+      const padB = 40;
+
+      const plotW = width - padL - padR;
+      const plotH = height - padT - padB;
+
+      const allY = values.concat(trendLine);
+      let minY = Math.min(...allY);
+      let maxY = Math.max(...allY);
+      const rangeY = (maxY - minY) || 1.0;
+      minY = minY - rangeY * 0.08;
+      maxY = maxY + rangeY * 0.08;
+
+      const scaleX = (i) => padL + (i / (n - 1)) * plotW;
+      const scaleY = (val) => padT + plotH - ((val - minY) / (maxY - minY)) * plotH;
+
+      let pathObs = '';
+      let circles = '';
+      for (let i = 0; i < n; i++) {
+        const x = scaleX(i);
+        const y = scaleY(values[i]);
+        if (i === 0) pathObs += `M ${x.toFixed(1)} ${y.toFixed(1)}`;
+        else pathObs += ` L ${x.toFixed(1)} ${y.toFixed(1)}`;
+        circles += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="#3182ce" stroke="#ffffff" stroke-width="1.5"><title>${years[i]}: ${values[i]} ${data.unit}</title></circle>`;
+      }
+
+      const x0 = scaleX(0);
+      const y0 = scaleY(trendLine[0]);
+      const x1 = scaleX(n - 1);
+      const y1 = scaleY(trendLine[n - 1]);
+      const trendColor = data.sen_slope < 0 ? '#e53e3e' : '#38a169';
+
+      let xTicks = '';
+      for (let i = 0; i < n; i += 3) {
+        const x = scaleX(i);
+        xTicks += `<text x="${x}" y="${height - 12}" font-size="11" fill="#718096" text-anchor="middle">${years[i]}</text>`;
+        xTicks += `<line x1="${x}" y1="${padT}" x2="${x}" y2="${padT + plotH}" stroke="#edf2f7" stroke-width="1"/>`;
+      }
+
+      let yTicks = '';
+      for (let step = 0; step <= 4; step++) {
+        const v = minY + (step / 4) * (maxY - minY);
+        const y = scaleY(v);
+        yTicks += `<text x="${padL - 8}" y="${y + 4}" font-size="11" fill="#718096" text-anchor="end">${v.toFixed(1)}</text>`;
+        yTicks += `<line x1="${padL}" y1="${y}" x2="${width - padR}" y2="${y}" stroke="#edf2f7" stroke-width="1"/>`;
+      }
+
+      trendChartContainer.innerHTML = `
+        <svg width="100%" height="260" viewBox="0 0 ${width} ${height}" style="overflow: visible;">
+          ${yTicks}
+          ${xTicks}
+          <line x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}" stroke="${trendColor}" stroke-width="3" stroke-dasharray="6,4"/>
+          <path d="${pathObs}" fill="none" stroke="#2b6cb0" stroke-width="2.2"/>
+          ${circles}
+          <g transform="translate(${padL + 15}, ${padT + 10})">
+            <circle cx="6" cy="6" r="4" fill="#3182ce"/>
+            <text x="16" y="9" font-size="11" fill="#2d3748">Serie Anual Observada</text>
+            <line x1="160" y1="6" x2="190" y2="6" stroke="${trendColor}" stroke-width="2.5" stroke-dasharray="4,3"/>
+            <text x="196" y="9" font-size="11" fill="${trendColor}">Pendiente de Sen (${data.sen_slope > 0 ? '+' : ''}${data.sen_slope}/año)</text>
+          </g>
+        </svg>
+      `;
+    }
+
+    if (closeTrendModal) {
+      closeTrendModal.addEventListener('click', () => {
+        trendModal.style.display = 'none';
+      });
+    }
+
+    window.addEventListener('click', (e) => {
+      if (e.target === trendModal) {
+        trendModal.style.display = 'none';
+      }
+    });
+    
+    // ========================================
+    // INICIALIZACIÓN
+    // ========================================
+    
+    // Cargar configuración
+    fetch('/config')
+      .then(res => res.json())
+      .then(config => {
+        map.setView(config.center, config.zoom);
+        map.invalidateSize();
+        updateStatus(`Sistema listo - ${config.region_name}`);
+        
+        // Verificar estado del modelo
+        checkModelStatus();
+      })
+      .catch(err => {
+        console.error('Error cargando configuración:', err);
+        updateStatus('Error de inicialización');
+      });
+    
+    // Invalidar dimensiones para Leaflet y ejecutar predicción inicial (US-33, US-34)
+    setTimeout(() => {
+      map.invalidateSize();
+      runPrediction();
+    }, 600);
+    
+    // Segundo refresco de dimensiones para asegurar renderizado en pantallas lentas
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 1500);
+    
+    // Actualizar timestamp cada minuto
+    setInterval(() => {
+      const now = new Date().toLocaleString('es-PE');
+      console.log('Sistema activo:', now);
+    }, 60000);
+    
+    console.log('🚀 Sistema GeoAI Puno - Monitoreo de Sequía Agrícola inicializado');
+    console.log('📍 Región: Puno, Perú');
+  </script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+# ==============================================================================
+# .gitignore — GeoAI Puno (NASA Space Apps Challenge 2026)
+# ==============================================================================
+
+# Entornos virtuales de Python
+venv/
+.venv/
+env/
+ENV/
+
+# Python cache & bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Archivo legacy que supera el límite de 100 MB de GitHub (281 MB)
+app/models/checkpoints/sdcnn_best_model.keras
+
+# Historial de trials de optimización de hiperparámetros (44 MB)
+app/models/tuning/
+
+# Caché pesada de matrices RBF precalculadas (76 MB)
+app/data/rbf_cache/*.npz
+
+# Logs del sistema y temporales
+*.log
+app/data/results/pipeline_logs/*.txt
+.DS_Store
+Thumbs.db

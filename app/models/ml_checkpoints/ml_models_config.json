@@ -1,0 +1,46 @@
+{
+    "timestamp": "2026-11-11T20:38:55.338954",
+    "target": "vhi",
+    "feature_cols": [
+        "vci",
+        "tci",
+        "lst",
+        "sm",
+        "spi_1",
+        "spi_3",
+        "dem",
+        "lon",
+        "lat"
+    ],
+    "models": {
+        "Random_Forest": {
+            "metrics": {
+                "RMSE": 3.73648503228138,
+                "MAE": 2.8793204029920663,
+                "R2": 0.960731357856339,
+                "NSE": 0.960731357856339,
+                "Bias": 0.40314028704011867,
+                "Correlation": 0.9853597928586977
+            },
+            "training_time": 0.6539759635925293,
+            "path": "app/models/ml_checkpoints/random_forest_model.pkl"
+        },
+        "XGBoost": {
+            "metrics": {
+                "RMSE": 2.2915555339984492,
+                "MAE": 1.8050013393825952,
+                "R2": 0.9852300112876208,
+                "NSE": 0.9852300112876208,
+                "Bias": -0.1698359743754068,
+                "Correlation": 0.9928631741773309
+            },
+            "training_time": 0.7534050941467285,
+            "path": "app/models/ml_checkpoints/xgboost_model.pkl"
+        }
+    },
+    "dataset_size": {
+        "train": 296,
+        "val": 36,
+        "test": 72
+    }
+}

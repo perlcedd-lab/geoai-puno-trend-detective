@@ -1,0 +1,232 @@
+# ==============================================================================
+# EXPERIMENT CONFIGURATION — GeoAI Agricultural Drought Monitoring (Puno, Peru)
+# NASA Space Apps Challenge 2026: "Be An Earth System Trend Detective!"
+# Scopus / IEEE Geoscience Benchmark Standards
+# ==============================================================================
+
+global:
+  project_name: "GeoAI Puno: Satellite-Driven Earth System Trend Detective & Agricultural Drought Forecasting"
+  official_challenge: "Be An Earth System Trend Detective!"
+  challenge_category: "Climate & Earth System Trend Analysis (2001-2025)"
+  temporal_coverage_trends: "2001-2025 (25 complete agricultural campaigns Dec-Mar)"
+  temporal_coverage_smap: "2015-2025 (11 campaigns, pure satellite SMAP L4, low statistical power declared)"
+  region: "Puno, Peru (Andean Altiplano)"
+  spatial_resolution_m: 5000
+  random_seed: 42
+  bounding_box:
+    min_lon: -71.1
+    max_lon: -68.8
+    min_lat: -17.3
+    max_lat: -13.0
+  lake_titicaca_mask:
+    min_lon: -70.1
+    max_lon: -68.6
+    min_lat: -16.6
+    max_lat: -15.2
+
+# Active operational mode: "mode_b_forecast" | "mode_a_gap_filling" | "legacy_leaky"
+active_mode: "mode_b_forecast"
+
+# ------------------------------------------------------------------------------
+# MODES DEFINITION
+# ------------------------------------------------------------------------------
+modes:
+  legacy_leaky:
+    status: "INVALID_LEAKY_BASELINE"
+    description: "Configuración previa con fuga circular severa (VHI = 0.5*VCI + 0.5*TCI como función de VCI y TCI). Conservada ÚNICAMENTE con fines de auditoría y comparación negativa."
+    target: "vhi"
+    features:
+      - "vci"
+      - "tci"
+      - "lst"
+      - "sm"
+      - "spi_1"
+      - "spi_3"
+      - "dem"
+      - "lon"
+      - "lat"
+    split:
+      type: "spatial_block"
+      n_blocks_x: 5
+      n_blocks_y: 5
+      train_ratio: 0.733
+      val_ratio: 0.089
+      test_ratio: 0.178
+      embargo_days: 0
+
+  mode_a_gap_filling:
+    status: "SCIENTIFICALLY_VALID"
+    description: "Diagnóstico espacial contemporáneo bajo cobertura nubosa persistente (Gap-Filling). Excluye todo dato óptico/térmico contemporáneo."
+    target: "vhi"
+    forbidden_features:
+      - "vci"
+      - "tci"
+      - "lst"
+      - "ndvi"
+      - "evi"
+      - "s2_ndvi"
+      - "lon"
+      - "lat"
+    allowed_features:
+      - "sm"
+      - "spi_1"
+      - "spi_3"
+      - "dem"
+      - "slope"
+      - "aspect"
+      - "dist_lake"
+      - "precip_lag"
+      - "et_mod16"
+      - "fldas_sm"
+      - "doy_sin"
+      - "doy_cos"
+    features:
+      - "sm"
+      - "spi_1"
+      - "spi_3"
+      - "dem"
+      - "slope"
+      - "aspect"
+      - "dist_lake"
+      - "precip_lag"
+      - "doy_sin"
+      - "doy_cos"
+    split:
+      type: "spatial_block"
+      n_blocks_x: 5
+      n_blocks_y: 5
+      train_ratio: 0.70
+      val_ratio: 0.10
+      test_ratio: 0.20
+      embargo_days: 0
+
+  mode_b_forecast:
+    status: "SCIENTIFICALLY_VALID_PRIMARY"
+    description: "Pronóstico y alerta temprana a +16 días para el Seguro Agrícola Catastrófico (SAC). Utiliza estado antecedente (<= t) con embargo temporal estricto de >= 16 días."
+    target: "vhi_lead16"
+    forecast_horizon_days: 16
+    forbidden_features:
+      - "vci"
+      - "tci"
+      - "lst"
+      - "ndvi"
+      - "evi"
+      - "s2_ndvi"
+      - "vhi"
+      - "lon"
+      - "lat"
+    allowed_features:
+      - "sm"
+      - "spi_1"
+      - "spi_3"
+      - "dem"
+      - "slope"
+      - "aspect"
+      - "dist_lake"
+      - "precip_lag"
+      - "et_mod16"
+      - "fldas_sm"
+      - "doy_sin"
+      - "doy_cos"
+      - "vci_lag16"
+      - "tci_lag16"
+    features:
+      - "sm"
+      - "spi_1"
+      - "spi_3"
+      - "dem"
+      - "slope"
+      - "aspect"
+      - "dist_lake"
+      - "precip_lag"
+      - "doy_sin"
+      - "doy_cos"
+      - "vci_lag16"
+      - "tci_lag16"
+    split:
+      type: "spatial_temporal_block"
+      n_blocks_x: 5
+      n_blocks_y: 5
+      train_ratio: 0.70
+      val_ratio: 0.10
+      test_ratio: 0.20
+      embargo_days: 16
+      composite_window_days: 16
+
+# ------------------------------------------------------------------------------
+# DECISION & INSURANCE TRIGGERS (SAC - Seguro Agrícola Catastrófico)
+# ------------------------------------------------------------------------------
+sac_trigger:
+  threshold_vhi: 20.0
+  level_1_surveillance_prob: 0.50 # Vigilancia agronómica y movilización de campo (P >= 0.50)
+  level_2_activation_prob: 0.70    # Activación oficial de indemnización SAC (P >= 0.70)
+  consecutive_composites_required: 2 # Confirmación de 2 compuestos consecutivos para Nivel 2
+
+# ------------------------------------------------------------------------------
+# SPATIAL EXCLUSION BUFFER (AUTOCORRELATION DECOUPLING)
+# ------------------------------------------------------------------------------
+spatial_validation:
+  variogram_range_km: 91.67
+  exclusion_buffer_km: 91.67
+  buffer_enforced: true
+  test_set_fixed: true
+  n_test_cells: 85
+  n_train_cells_unbuffered: 282
+  n_train_cells_buffered: 53 # Distancia mínima al test >= 92.04 km
+
+# ------------------------------------------------------------------------------
+# CONFORMALIZED QUANTILE REGRESSION (CQR) & UNCERTAINTY
+# ------------------------------------------------------------------------------
+uncertainty:
+  nominal_coverage: 0.90
+  alpha: 0.10
+  operational_method: "fcnn_split_cqr" # Banda óptima: Garantía conformal finita, Winkler 23.93, Ancho 22.45 pts VHI (26.91 - 2*2.23), PICP 96.47%
+  benchmark_method: "cv_plus"           # CV+ Conformal por Bloques: Winkler 24.53, Ancho 22.63 pts VHI, PICP 97.65%
+  lightgbm_raw_comparison: "LightGBM Quantile crudo: Winkler 27.43, Ancho 22.14 pts VHI, PICP 87.06% (sub-cobertura sin garantía conformal)"
+  lightgbm_cqr_comparison: "LightGBM Quantile + CQR (q̂=+3.00): Winkler 28.44, Ancho 28.13 pts VHI, PICP 96.47%"
+  method: "fcnn_split_cqr"
+  quantiles: [0.05, 0.50, 0.95]
+  anti_crossing: true
+
+# ------------------------------------------------------------------------------
+# REGRESSION KRIGING & GEOSTATISTICS
+# ------------------------------------------------------------------------------
+kriging:
+  enabled_for_residuals: true
+  variogram_model: "spherical"
+  moran_significance_alpha: 0.05
+  grid_resolution: 120
+  fallback_method: "pure_ml"
+
+# ------------------------------------------------------------------------------
+# HYPERPARAMETERS
+# ------------------------------------------------------------------------------
+models:
+  xgboost:
+    n_estimators: 250
+    max_depth: 5
+    learning_rate: 0.05
+    subsample: 0.85
+    colsample_bytree: 0.85
+    reg_alpha: 0.1
+    reg_lambda: 1.0
+    random_state: 42
+  random_forest:
+    n_estimators: 250
+    max_depth: 10
+    min_samples_split: 4
+    min_samples_leaf: 2
+    max_features: "sqrt"
+    random_state: 42
+  lightgbm_quantile:
+    n_estimators: 200
+    learning_rate: 0.05
+    num_leaves: 31
+    random_state: 42
+  quantile_nn:
+    hidden_units: [64, 32, 16]
+    dropouts: [0.25, 0.20]
+    learning_rate: 0.001
+    batch_size: 32
+    epochs: 100
+    early_stopping_patience: 15

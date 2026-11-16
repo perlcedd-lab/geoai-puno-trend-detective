@@ -7,7 +7,7 @@
 flask>=3.0.0
 
 # Procesamiento Numérico & Tabular
-numpy==1.24.4
+numpy==1.24.3
 pandas>=2.0.3
 scipy>=1.11.4
 pyyaml>=6.0.0
@@ -20,7 +20,7 @@ xgboost>=2.0.0
 
 # Estadística de Tendencias (NASA Trend Detective)
 pymannkendall>=1.4.3
-pandera>=0.20.0
+pandera==0.20.3
 
 # Geoespacial & Kriging
 earthengine-api>=0.1.382
